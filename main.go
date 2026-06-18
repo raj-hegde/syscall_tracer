@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/ringbuf"
 )
 
 type Event struct {
@@ -21,6 +24,7 @@ func main() {
 		Events *ebpf.Map     `ebpf:"events"`
 	}
 
+	var event Event
 	spec, err := ebpf.LoadCollectionSpec("syscall.bpf.o")
 	if err != nil {
 		log.Fatalf("Failed to load eBPF bytecode: %v", err)
@@ -41,4 +45,21 @@ func main() {
 	}
 	defer l.Close()
 	fmt.Println("Successfully attached Raw Tracepoint")
+
+	rd, err := ringbuf.NewReader(objs.Events)
+	if err != nil {
+		log.Fatalf("Failed to create ringbuf reader: %v", err)
+	}
+	defer rd.Close()
+
+	for {
+		record, err := rd.Read()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := binary.Read(bytes.NewReader(record.RawSample), binary.LittleEndian, &event); err != nil {
+			continue
+		}
+		fmt.Printf("PID=%d COMM=%s SYSCALL=%d\n", event.PID, bytes.TrimRight(event.Comm[:], "\x00"), event.Syscall)
+	}
 }
