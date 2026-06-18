@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 )
 
-type Event struct {
+type Event_entry struct {
 	PID     uint32
 	Syscall uint32
 	Comm    [16]byte
@@ -20,11 +20,11 @@ type Event struct {
 func main() {
 
 	var objs struct {
-		Prog   *ebpf.Program `ebpf:"trace_syscall"`
+		Prog   *ebpf.Program `ebpf:"syscall_entry"`
 		Events *ebpf.Map     `ebpf:"events"`
 	}
 
-	var event Event
+	var event Event_entry
 	spec, err := ebpf.LoadCollectionSpec("syscall.bpf.o")
 	if err != nil {
 		log.Fatalf("Failed to load eBPF bytecode: %v", err)
